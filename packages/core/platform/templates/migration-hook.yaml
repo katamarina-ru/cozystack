@@ -38,6 +38,12 @@ spec:
               value: {{ $currentVersion | quote }}
             - name: TARGET_VERSION
               value: {{ $targetVersion | quote }}
+            {{- if .Values.migrations.etcdAdoptSkipBackup }}
+            # Opt-in bypass of the etcd v1alpha2 adoption pre-adoption snapshot
+            # (see .Values.migrations.etcdAdoptSkipBackup). Adoption still runs.
+            - name: ETCD_ADOPT_SKIP_BACKUP
+              value: "1"
+            {{- end }}
       restartPolicy: Never
 ---
 apiVersion: rbac.authorization.k8s.io/v1

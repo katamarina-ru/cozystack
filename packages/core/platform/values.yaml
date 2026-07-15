@@ -15,6 +15,14 @@ migrations:
   # a stale pin fails loudly rather than silently skipping the etcd adoption.
   image: ghcr.io/cozystack/cozystack/platform-migrations:v1.5.0@sha256:8bf61f17e99eb4a3365394e3d97ac52a1d68cc84aa104894ecb09de25721dc1d
   targetVersion: 52
+  # First-class opt-in for the etcd v1alpha2 adoption migration's
+  # ETCD_ADOPT_SKIP_BACKUP escape hatch. Default false: a real upgrade MUST take a
+  # pre-adoption S3 safety snapshot before adopting a live etcd. Set true only
+  # where that snapshot is impossible or deliberately unwanted — e.g. an ephemeral
+  # e2e sandbox with no trusted-cert S3 endpoint the Etcd backup strategy can
+  # reach, or a cluster with backups disabled — accepting adoption WITHOUT a
+  # snapshot. The adoption itself still runs; only the snapshot is skipped.
+  etcdAdoptSkipBackup: false
 # Bundle deployment configuration
 bundles:
   system:
