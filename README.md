@@ -12,66 +12,66 @@
 
 # Cozystack
 
-**Cozystack** is a free platform and framework for building clouds.
+**Cozystack** — это свободная платформа и фреймворк для создания облаков.
 
-Cozystack is a [CNCF Sandbox Level Project](https://www.cncf.io/sandbox-projects/) that was originally built and sponsored by [Ænix](https://aenix.io/).
+Cozystack — это [проект уровня CNCF Sandbox](https://www.cncf.io/sandbox-projects/), который был изначально создан и поддерживается компанией [Ænix](https://aenix.io/).
 
-With Cozystack, you can transform a bunch of servers into an intelligent system with a simple REST API for spawning Kubernetes clusters,
-Database-as-a-Service, virtual machines, load balancers, HTTP caching services, and other services with ease.
+С помощью Cozystack вы можете превратить набор серверов в интеллектуальную систему с простым REST API для развёртывания кластеров Kubernetes,
+баз данных как услуги (DBaaS), виртуальных машин, балансировщиков нагрузки, служб HTTP-кэширования и других сервисов легко и просто.
 
-Use Cozystack to build your own cloud or provide a cost-effective development environment.  
+Используйте Cozystack, чтобы построить собственное облако или предоставить экономичную среду разработки.  
 
 ![Cozystack user interface](https://cozystack.io/img/screenshot-dark.png)
 
-## Use-Cases
+## Варианты использования
 
-* [**Using Cozystack to build a public cloud**](https://cozystack.io/docs/guides/use-cases/public-cloud/)  
-You can use Cozystack as a backend for a public cloud
+* [**Использование Cozystack для создания публичного облака**](https://cozystack.io/docs/guides/use-cases/public-cloud/)  
+Вы можете использовать Cozystack как backend для публичного облака
 
-* [**Using Cozystack to build a private cloud**](https://cozystack.io/docs/guides/use-cases/private-cloud/)  
-You can use Cozystack as a platform to build a private cloud powered by Infrastructure-as-Code approach
+* [**Использование Cozystack для создания приватного облака**](https://cozystack.io/docs/guides/use-cases/private-cloud/)  
+Вы можете использовать Cozystack как платформу для построения приватного облака на основе подхода Infrastructure-as-Code
 
-* [**Using Cozystack as a Kubernetes distribution**](https://cozystack.io/docs/guides/use-cases/kubernetes-distribution/)  
-You can use Cozystack as a Kubernetes distribution for Bare Metal
+* [**Использование Cozystack как дистрибутива Kubernetes**](https://cozystack.io/docs/guides/use-cases/kubernetes-distribution/)  
+Вы можете использовать Cozystack как дистрибутив Kubernetes для физических серверов (Bare Metal)
 
 
-## Documentation
+## Документация
 
-The documentation is located on the [cozystack.io](https://cozystack.io) website.
+Документация размещена на сайте [cozystack.io](https://cozystack.io).
 
-Read the [Getting Started](https://cozystack.io/docs/getting-started/) section for a quick start.
+Прочитайте раздел [Getting Started](https://cozystack.io/docs/getting-started/), чтобы быстро начать работу.
 
-If you encounter any difficulties, start with the [troubleshooting guide](https://cozystack.io/docs/operations/troubleshooting/) and work your way through the process that we've outlined.
+Если у вас возникнут трудности, начните с [руководства по устранению неполадок](https://cozystack.io/docs/operations/troubleshooting/) и следуйте описанному в нём процессу.
 
-## Versioning
+## Версионирование
 
-Versioning adheres to the [Semantic Versioning](http://semver.org/) principles.  
-A full list of the available releases is available in the GitHub repository's [Release](https://github.com/cozystack/cozystack/releases) section.
+Версионирование соответствует принципам [Semantic Versioning](http://semver.org/).  
+Полный список доступных релизов можно найти в разделе [Release](https://github.com/cozystack/cozystack/releases) репозитория GitHub.
 
-- [Roadmap](https://cozystack.io/docs/roadmap/)
+- [Дорожная карта (Roadmap)](https://cozystack.io/docs/roadmap/)
 
-## Contributions
+## Вклад в проект
 
-Contributions are highly appreciated and very welcomed!
+Вклад в проект очень ценится и всегда приветствуется!
 
-In case of bugs, please check if the issue has already been opened by checking the [GitHub Issues](https://github.com/cozystack/cozystack/issues) section.
-If it isn't, you can open a new one. A detailed report will help us replicate it, assess it, and work on a fix.
+Если вы обнаружили ошибку, сначала проверьте, не была ли она уже зарегистрирована в разделе [GitHub Issues](https://github.com/cozystack/cozystack/issues).
+Если нет — вы можете открыть новую заявку. Подробное описание поможет нам воспроизвести проблему, оценить её и исправить.
 
-You can express your intention to on the fix on your own.
-Commits are used to generate the changelog, and their author will be referenced in it.
+Вы можете самостоятельно выразить намерение исправить проблему.
+Коммиты используются для генерации changelog, а их автор будет упомянут в нём.
 
-If you have a **concrete feature request**, [open an issue](https://github.com/cozystack/cozystack/issues/new/choose). For a **cross-cutting or architectural change**, open a [design proposal](https://github.com/cozystack/community/tree/main/design-proposals) in the [community](https://github.com/cozystack/community) repo. For **questions or early ideas**, use [GitHub Discussions](https://github.com/cozystack/cozystack/discussions). See [CONTRIBUTING.md](CONTRIBUTING.md#where-do-i-file) for the full routing.
+Если у вас есть **конкретный запрос на новую функцию**, [откройте issue](https://github.com/cozystack/cozystack/issues/new/choose). Для **сквозных или архитектурных изменений** откройте [design proposal](https://github.com/cozystack/community/tree/main/design-proposals) в репозитории [community](https://github.com/cozystack/community). Для **вопросов или ранних идей** используйте [GitHub Discussions](https://github.com/cozystack/cozystack/discussions). Полный порядок маршрутизации см. в [CONTRIBUTING.md](CONTRIBUTING.md#where-do-i-file).
 
-## Community
+## Сообщество
 
-You are welcome to join our [Telegram group](https://t.me/cozystack) and come to our weekly community meetings.
-Add them to your [Google Calendar](https://calendar.google.com/calendar?cid=ZTQzZDIxZTVjOWI0NWE5NWYyOGM1ZDY0OWMyY2IxZTFmNDMzZTJlNjUzYjU2ZGJiZGE3NGNhMzA2ZjBkMGY2OEBncm91cC5jYWxlbmRhci5nb29nbGUuY29t) or [iCal](https://calendar.google.com/calendar/ical/e43d21e5c9b45a95f28c5d649c2cb1e1f433e2e653b56dbbda74ca306f0d0f68%40group.calendar.google.com/public/basic.ics) for convenience.
+Приглашаем вас присоединиться к нашей [группе в Telegram](https://t.me/cozystack_ru) и приходить на наши еженедельные встречи сообщества.
+Добавьте их в свой [Google Calendar](https://calendar.google.com/calendar?cid=ZTQzZDIxZTVjOWI0NWE5NWYyOGM1ZDY0OWMyY2IxZTFmNDMzZTJlNjUzYjU2ZGJiZGE3NGNhMzA2ZjBkMGY2OEBncm91cC5jYWxlbmRhci5nb29nbGUuY29t) или [iCal](https://calendar.google.com/calendar/ical/e43d21e5c9b45a95f28c5d649c2cb1e1f433e2e653b56dbbda74ca306f0d0f68%40group.calendar.google.com/public/basic.ics) для удобства.
 
-## License
+## Лицензия
 
-Cozystack is licensed under Apache 2.0.  
-The code is provided as-is with no warranties.
+Cozystack распространяется под лицензией Apache 2.0.  
+Код предоставляется "как есть" без каких-либо гарантий.
 
-## Commercial Support
+## Коммерческая поддержка
 
-A list of companies providing commercial support for this project can be found on [official site](https://cozystack.io/support/).
+Список компаний, предоставляющих коммерческую поддержку для этого проекта, можно найти на [официальном сайте](https://cozystack.io/support/).
