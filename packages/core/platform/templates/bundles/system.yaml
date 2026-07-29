@@ -13,13 +13,26 @@
 {{- if .Values.networking.kubeovn.MASTER_NODES -}}
 {{- $_ := set $kubeovnDict "MASTER_NODES" .Values.networking.kubeovn.MASTER_NODES -}}
 {{- end -}}
+{{- /* Opt-in east-west encryption (networking.encryption.enabled): on the
+       default kubeovn-cilium datapath the overlay is KubeOVN's Geneve
+       tunnel, so encrypting it means turning on KubeOVN IPsec. KubeOVN's
+       own controller provisions the IPsec CA and per-node certs through
+       the Kubernetes CSR API — no cert-manager wiring needed here. Off by
+       default; complements (does not replace) application-level TLS. */ -}}
+{{- if dig "encryption" "enabled" false .Values.networking -}}
+{{- $_ := set $kubeovnDict "func" (dict "ENABLE_OVN_IPSEC" true) -}}
+{{- end -}}
 {{- $kubeovnValues := dict "kube-ovn" $kubeovnDict -}}
 {{- $_ := set $networkingComponents "kubeovn" (dict "values" $kubeovnValues) -}}
 {{- /* For Talos (isp-full): use KubePrism endpoint and disable cgroup autoMount */ -}}
+{{- /* gateway.http2 is threaded explicitly in BOTH states: inline HelmRelease
+       values override the system/cilium valuesFiles default (enableAlpn: true),
+       so an operator's http2: false actually reaches the dataplane. */ -}}
 {{- $ciliumValues := dict "cilium" (dict
   "k8sServiceHost" "localhost"
   "k8sServicePort" "7445"
-  "cgroup" (dict "autoMount" (dict "enabled" false))) -}}
+  "cgroup" (dict "autoMount" (dict "enabled" false))
+  "gatewayAPI" (dict "enableAlpn" .Values.gateway.http2)) -}}
 {{- $_ := set $networkingComponents "cilium" (dict "values" $ciliumValues) -}}
 {{- end -}}
 {{include "cozystack.platform.package" (list "cozystack.networking" "kubeovn-cilium" $ $networkingComponents) }}
@@ -79,13 +92,21 @@
 {{- end -}}
 {{- /* For generic k8s (k3s), control-plane label has value "true" */ -}}
 {{- $_ := set $kubeovnDict "MASTER_NODES_LABEL" "node-role.kubernetes.io/control-plane=true" -}}
+{{- /* Opt-in east-west encryption (networking.encryption.enabled): same
+       KubeOVN Geneve-overlay IPsec path as isp-full. See the isp-full
+       branch above for the mechanism notes. */ -}}
+{{- if dig "encryption" "enabled" false .Values.networking -}}
+{{- $_ := set $kubeovnDict "func" (dict "ENABLE_OVN_IPSEC" true) -}}
+{{- end -}}
 {{- $kubeovnValues := dict "kube-ovn" $kubeovnDict -}}
 {{- $_ := set $networkingComponents "kubeovn" (dict "values" $kubeovnValues) -}}
 {{- /* Cilium configuration - for generic k8s, always enable cgroup autoMount */ -}}
+{{- /* gateway.http2 threading: same rationale as the isp-full branch above. */ -}}
 {{- $ciliumValues := dict "cilium" (dict
   "k8sServiceHost" $apiHost
   "k8sServicePort" $apiPort
-  "cgroup" (dict "autoMount" (dict "enabled" true))) -}}
+  "cgroup" (dict "autoMount" (dict "enabled" true))
+  "gatewayAPI" (dict "enableAlpn" .Values.gateway.http2)) -}}
 {{- $_ := set $networkingComponents "cilium" (dict "values" $ciliumValues) -}}
 {{- end -}}
 {{- /* Use kubeovn-cilium-generic variant (no values-talos.yaml) */ -}}
@@ -216,7 +237,21 @@
 {{- end }}
 {{include "cozystack.platform.package.default" (list "cozystack.etcd-application" $) }}
 {{include "cozystack.platform.package.default" (list "cozystack.cozystack-basics" $) }}
-{{include "cozystack.platform.package.default" (list "cozystack.backupstrategy-controller" $) }}
+{{- /*
+  Forward admin backupStorage overrides (endpoint, region, systemSecretName, …)
+  into the emitted cozystack.backupstrategy-controller Package CR's
+  components.backupstrategy-controller.values, so the supported override path
+  on the cozystack-platform Package — spec.components.platform.values.backupStorage —
+  actually reaches the backupstrategy-controller HelmRelease (#3245). Same
+  pattern as the kubevirt / gpu-operator forwarding in bundles/iaas.yaml. The
+  components block is only rendered when the admin set something, so an unset
+  backupStorage keeps the emitted Package identical to the historical render.
+*/ -}}
+{{- $backupStrategyComponents := dict -}}
+{{- if .Values.backupStorage -}}
+{{- $_ := set $backupStrategyComponents "backupstrategy-controller" (dict "values" (dict "backupStorage" .Values.backupStorage)) -}}
+{{- end -}}
+{{include "cozystack.platform.package" (list "cozystack.backupstrategy-controller" "default" $ $backupStrategyComponents) }}
 {{include "cozystack.platform.package.default" (list "cozystack.backup-controller" $) }}
 {{- /* velero must be a default package: backupstrategy-controller (default)
 hard-depends on cozystack.velero, so an optional velero leaves the
