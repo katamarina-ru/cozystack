@@ -5,8 +5,8 @@ ingress-nginx:
     image:
       registry: ghcr.io
       image: cozystack/ingress-nginx-with-protobuf-exporter/controller
-      tag: v1.11.2
-      digest: sha256:beba8869ee370599e1f26557a9669ebdc9481c07b34059f348eb3e17b647e7e0
+      tag: v1.11.5
+      digest: sha256:f51c7ee0968ad542d4b77854fc57f68e17b2f6e498bcd168cd5f42b409bf54e6
     allowSnippetAnnotations: true
     replicaCount: 2
     admissionWebhooks:
@@ -16,7 +16,7 @@ ingress-nginx:
       enabled: true
     extraContainers:
     - name: protobuf-exporter
-      image: ghcr.io/cozystack/ingress-nginx-with-protobuf-exporter/protobuf-exporter:v1.11.2@sha256:6d9235a9ee6f2be1921db4687afbdcd85d145b087dd916b5a96455bdb5cff560
+      image: ghcr.io/cozystack/ingress-nginx-with-protobuf-exporter/protobuf-exporter:v1.11.5@sha256:0f981014415e00cfee3bf38f7ca084e6774150d6a57774e73da04acd8b346335
       args:
       - --server.telemetry-address=0.0.0.0:9090
       - --server.exporter-address=0.0.0.0:9091
@@ -102,3 +102,36 @@ ingress-nginx:
         cpu: 10m
         memory: 20Mi
 
+# Deny Cilium-managed pod traffic to the admission webhook. The API server
+# remains reachable directly on a management cluster or through the
+# konnectivity-agent ServiceAccount on a Kamaji-hosted tenant cluster;
+# host-network workloads remain outside this pod policy.
+#
+# Rendered as a CiliumClusterwideNetworkPolicy, and the template renders only
+# while that Cilium API is discoverable. So `true` is not a promise that a
+# policy exists: on a cluster serving no such API the chart emits nothing,
+# without an Event or a render-time message to look at. Set enabled: false to
+# opt out deliberately, which is what separates "this cluster has no Cilium"
+# from "this deny was not wanted here".
+#
+# The policy denies the webhook's backend port only, which covers a pod dialling
+# the Service ClusterIP because Cilium translates a service to its backends
+# before it enforces egress policy. That depends on Cilium owning service
+# load-balancing -- packages/system/cilium/values.yaml kubeProxyReplacement,
+# true there against an upstream default of "false". It is pinned by
+# packages/system/cilium/tests/kube_proxy_replacement_test.yaml, which carries
+# the argument; flip it and the ClusterIP path to this webhook reopens while the
+# backend deny keeps working. The target-side rule in the same policy does not
+# depend on that value at all -- it is evaluated on the webhook's own ingress
+# path, after whatever DNAT already happened -- so the two together degrade
+# rather than fail open.
+#
+# Residual risk worth stating: no test in this repo can observe a live cluster's
+# Cilium values, so an operator setting kubeProxyReplacement: false in the field
+# is caught only by the status ConfigMap that
+# packages/system/cilium/templates/kube-proxy-replacement-beacon.yaml renders,
+# and inside a tenant Kubernetes cluster only by the equivalent beacon in
+# packages/apps/kubernetes. Whether that configuration is supported at all is a
+# platform question this chart does not answer.
+admissionWebhookPolicy:
+  enabled: true
