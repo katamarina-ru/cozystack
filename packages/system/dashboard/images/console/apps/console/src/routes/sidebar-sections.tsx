@@ -6,9 +6,12 @@ import {
   Gauge,
   Globe,
   HardDrive,
+  Import,
   LayoutGrid,
   Layers,
   Network,
+  Package,
+  Plug,
   Server,
   ToyBrick,
   Users,
@@ -54,6 +57,7 @@ export function useMarketplaceSidebarSections(): SidebarSection[] {
         title: "Marketplace",
         items: [
           { label: "Marketplace", to: "/marketplace", end: true, icon: LayoutGrid },
+          { label: "Repositories", to: "/marketplace/taps", icon: Package },
           ...ordered.map((category) => ({
             label: category,
             to: `/marketplace/c/${encodeURIComponent(category)}`,
@@ -111,7 +115,15 @@ export function useConsoleSidebarSections(): SidebarSection[] {
       ],
     }
 
-    return [...categorySections, backupsSection]
+    const migrationSection: SidebarSection = {
+      title: "Migration",
+      items: [
+        { label: "Sources", to: "/console/migration/vmimportsources", icon: Plug },
+        { label: "Imports", to: "/console/migration/vmimporttasks", icon: Import },
+      ],
+    }
+
+    return [...categorySections, backupsSection, migrationSection]
   }, [grouped])
 }
 

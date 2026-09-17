@@ -73,10 +73,11 @@ fi
 # the rest. Modelling multi-package suites is deferred to the test-minimal work.
 suite_to_source() {
   case "$1" in
-    kubernetes-latest|kubernetes-previous|kubernetes-oidc-system|kubernetes-oidc-customconfig)
+    kubernetes-latest|kubernetes-previous)
       echo cozystack.kubernetes-application ; return ;;
     vminstance) echo cozystack.vm-instance-application ; return ;;
     securitygroup) echo cozystack.securitygroup-controller ; return ;;
+    kafka-metadata) echo cozystack.kafka-application ; return ;;
   esac
   for cand in "cozystack.$1-application" "cozystack.$1"; do
     if echo "$NODES" | grep -Fxq "$cand"; then echo "$cand"; return; fi

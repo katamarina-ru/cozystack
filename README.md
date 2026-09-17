@@ -1,14 +1,13 @@
-![Cozystack](img/cozystack-logo-black.svg#gh-light-mode-only)
-![Cozystack](img/cozystack-logo-white.svg#gh-dark-mode-only)
+<img src="img/cozystack-logo-black.svg#gh-light-mode-only" alt="Cozystack" width="340">
+<img src="img/cozystack-logo-white.svg#gh-dark-mode-only" alt="Cozystack" width="340">
 
-[![Open Source](https://img.shields.io/badge/Open-Source-brightgreen)](https://opensource.org/)
-[![Apache-2.0 License](https://img.shields.io/github/license/cozystack/cozystack)](https://opensource.org/licenses/)
-[![Support](https://img.shields.io/badge/$-support-12a0df.svg?style=flat)](https://cozystack.io/support/)
-[![Active](http://img.shields.io/badge/Status-Active-green.svg)](https://github.com/cozystack/cozystack)
 [![GitHub Release](https://img.shields.io/github/release/cozystack/cozystack.svg?style=flat)](https://github.com/cozystack/cozystack/releases/latest)
-[![GitHub Commit](https://img.shields.io/github/commit-activity/y/cozystack/cozystack)](https://github.com/cozystack/cozystack/graphs/contributors)
+[![Apache-2.0 License](https://img.shields.io/github/license/cozystack/cozystack)](https://github.com/cozystack/cozystack/blob/main/LICENSE)
+[![Commit activity](https://img.shields.io/github/commit-activity/y/cozystack/cozystack)](https://github.com/cozystack/cozystack/graphs/commit-activity)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/10177/badge)](https://www.bestpractices.dev/projects/10177)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/cozystack/cozystack/badge)](https://securityscorecards.dev/viewer/?uri=github.com/cozystack/cozystack)
+[![CLOMonitor](https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cncf/cozystack/badge)](https://clomonitor.io/projects/cncf/cozystack)
+[![Support](https://img.shields.io/badge/$-support-12a0df.svg?style=flat)](https://cozystack.io/support/)
 
 # Cozystack
 

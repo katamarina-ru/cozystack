@@ -32,7 +32,7 @@ type ConfigSpec struct {
 	// Requested running state of the VirtualMachineInstance
 	// +kubebuilder:default:="Always"
 	RunStrategy RunStrategy `json:"runStrategy"`
-	// Virtual Machine instance type.
+	// Virtual Machine instance type. Ignored when `resources` sizes the VM, which needs whole-number cpu and sockets plus memory; the whole type is dropped then, so any dedicated CPU placement, hugepages, NUMA or realtime settings it carries go with it. While this field is set, a `resources` block that sizes only part of the VM is rejected outright instead of ignored, so complete it or clear it.
 	// +kubebuilder:default:="u1.medium"
 	InstanceType string `json:"instanceType"`
 	// Virtual Machine preferences profile.
@@ -53,7 +53,10 @@ type ConfigSpec struct {
 	// Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map
 	// +kubebuilder:default:=""
 	CpuModel string `json:"cpuModel"`
-	// Resource configuration for the virtual machine.
+	// Firmware and boot configuration (UEFI/BIOS selection, Secure Boot, persistent EFI NVRAM).
+	// +kubebuilder:default:={}
+	Firmware Firmware `json:"firmware,omitempty"`
+	// Resource configuration for the virtual machine. Set whole-number cpu and sockets together with memory to size the VM directly, which overrides `instanceType`. Alongside an `instanceType`, a block that sizes only part of the VM is rejected; cpu or sockets on its own sizes nothing and is ignored.
 	// +kubebuilder:default:={}
 	Resources Resources `json:"resources,omitempty"`
 	// List of SSH public keys for authentication.
@@ -72,6 +75,15 @@ type Disk struct {
 	Bus string `json:"bus,omitempty"`
 	// Disk name.
 	Name string `json:"name"`
+}
+
+type Firmware struct {
+	// Bootloader to boot the VM with: "uefi" (OVMF) or "bios" (SeaBIOS). Empty inherits the instanceProfile default.
+	Bootloader string `json:"bootloader,omitempty"`
+	// Persist EFI NVRAM (e.g. enrolled Secure Boot keys, such as an updated Microsoft UEFI CA) across reboots. Only applies when bootloader is "uefi". On default RWO storage the VM is node-pinned (no live-migration).
+	EfiPersistent bool `json:"efiPersistent,omitempty"`
+	// Enable UEFI Secure Boot. Only applies when bootloader is "uefi".
+	SecureBoot bool `json:"secureBoot,omitempty"`
 }
 
 type GPU struct {
