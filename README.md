@@ -20,25 +20,25 @@ Cozystack — это [проект уровня CNCF Sandbox](https://www.cncf.i
 
 Используйте Cozystack, чтобы построить собственное облако или предоставить экономичную среду разработки.  
 
-![Cozystack user interface](https://cozystack.io/img/screenshot-dark.png)
+![Cozystack user interface](https://cozystack.ru/img/screenshot-dark.png)
 
 ## Варианты использования
 
-* [**Использование Cozystack для создания публичного облака**](https://cozystack.io/docs/guides/use-cases/public-cloud/)  
+* [**Использование Cozystack для создания публичного облака**](https://cozystack.ru/docs/guides/use-cases/public-cloud/)  
 Вы можете использовать Cozystack как backend для публичного облака
 
-* [**Использование Cozystack для создания приватного облака**](https://cozystack.io/docs/guides/use-cases/private-cloud/)  
+* [**Использование Cozystack для создания приватного облака**](https://cozystack.ru/docs/guides/use-cases/private-cloud/)  
 Вы можете использовать Cozystack как платформу для построения приватного облака на основе подхода Infrastructure-as-Code
 
-* [**Использование Cozystack как дистрибутива Kubernetes**](https://cozystack.io/docs/guides/use-cases/kubernetes-distribution/)  
+* [**Использование Cozystack как дистрибутива Kubernetes**](https://cozystack.ru/docs/guides/use-cases/kubernetes-distribution/)  
 Вы можете использовать Cozystack как дистрибутив Kubernetes для физических серверов (Bare Metal)
 
 
 ## Документация
 
-Документация размещена на сайте [cozystack.io](https://cozystack.io).
+Документация размещена на сайте [cozystack.io](https://cozystack.ru).
 
-Прочитайте раздел [Getting Started](https://cozystack.io/docs/getting-started/), чтобы быстро начать работу.
+Прочитайте раздел [Getting Started](https://cozystack.ru/docs/getting-started/), чтобы быстро начать работу.
 
 Если у вас возникнут трудности, начните с [руководства по устранению неполадок](https://cozystack.io/docs/operations/troubleshooting/) и следуйте описанному в нём процессу.
 
@@ -47,7 +47,7 @@ Cozystack — это [проект уровня CNCF Sandbox](https://www.cncf.i
 Версионирование соответствует принципам [Semantic Versioning](http://semver.org/).  
 Полный список доступных релизов можно найти в разделе [Release](https://github.com/cozystack/cozystack/releases) репозитория GitHub.
 
-- [Дорожная карта (Roadmap)](https://cozystack.io/docs/roadmap/)
+- [Дорожная карта (Roadmap)](https://cozystack.ru/docs/roadmap/)
 
 ## Вклад в проект
 
@@ -73,4 +73,4 @@ Cozystack распространяется под лицензией Apache 2.0.
 
 ## Коммерческая поддержка
 
-Список компаний, предоставляющих коммерческую поддержку для этого проекта, можно найти на [официальном сайте](https://cozystack.io/support/).
+Список компаний, предоставляющих коммерческую поддержку для этого проекта, можно найти на [официальном сайте](https://cozystack.ru/support/).
