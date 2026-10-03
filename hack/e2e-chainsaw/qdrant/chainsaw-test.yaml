@@ -73,8 +73,10 @@ spec:
 
   - name: wait-helmreleases-ready
     try:
+    # 11m: above the 600s install timeout cozystack-api gives this release;
+    # see "Sizing an HR-Ready budget" in docs/agents/e2e-testing.md.
     - assert:
-        timeout: 6m
+        timeout: 11m
         resource:
           apiVersion: helm.toolkit.fluxcd.io/v2
           kind: HelmRelease
@@ -83,8 +85,11 @@ spec:
           status:
             (conditions[?type == 'Ready']):
             - status: "True"
+    # 11m: above the 10m spec.timeout that
+    # packages/apps/qdrant/templates/qdrant.yaml gives this release;
+    # see "Sizing an HR-Ready budget" in docs/agents/e2e-testing.md.
     - assert:
-        timeout: 5m
+        timeout: 11m
         resource:
           apiVersion: helm.toolkit.fluxcd.io/v2
           kind: HelmRelease
@@ -105,13 +110,14 @@ spec:
             name: qdrant-test
           # Pins the label the catch collector selects on. Asserts are subset
           # matches, so this costs nothing and turns a silent drift of the
-          # instance label into a red step instead of an empty capture.
+          # instance label into a red step instead of an empty capture. Readiness
+          # is covered by the qdrant-test-system HelmRelease above.
           spec:
             selector:
               matchLabels:
                 app.kubernetes.io/instance: qdrant-test-system
-          status:
-            readyReplicas: 1
+    # Stays: the reclaim step below only proves the PVC was reclaimed if it was
+    # seen here first, an `error` on a PVC that never existed passes as well.
     - assert:
         timeout: 2m
         resource:

@@ -65,12 +65,24 @@ spec:
             - |
               set -eu
               echo "Deleting KafkaTopics for {{ .Release.Name }} before the topic-operator is removed"
+              # The call carries no request timeout, deliberately. Any non-zero
+              # value for that flag makes kubectl skip its in-cluster
+              # credentials: client-go consults them only while the assembled
+              # config still equals the default, and the flag lands in that
+              # config. kubectl then talks to its built-in default cluster,
+              # localhost:8080, is refused, and this script reads the refusal as
+              # a failed delete and exits 1 -- which returns from Uninstall.Run
+              # before anything is removed and wedges every uninstall of this
+              # release. It leaves no trace in the rendered manifest; only a live
+              # uninstall shows it (#4276). The call is bounded by --timeout
+              # above for the watch and by activeDeadlineSeconds for the whole
+              # Job, the shape packages/apps/tenant/templates/cleanup-job.yaml
+              # uses and documents.
               if ! out=$(kubectl -n {{ .Release.Namespace }} delete kafkatopics.kafka.strimzi.io \
                     -l 'strimzi.io/cluster={{ .Release.Name }}' \
                     --ignore-not-found=true \
                     --wait=true \
-                    --timeout=180s \
-                    --request-timeout=20s 2>&1); then
+                    --timeout=180s 2>&1); then
                 printf '%s\n' "${out}"
                 case "${out}" in
                   *"the server doesn't have a resource type"*|*"no matches for kind"*)
@@ -80,6 +92,36 @@ spec:
                     echo "WARNING: leaving them behind so the uninstall can finish; clear the finalizer by hand." >&2 ;;
                   *)
                     echo "ERROR: deleting KafkaTopics failed: ${out}" >&2; exit 1 ;;
+                esac
+              else
+                printf '%s\n' "${out}"
+              fi
+
+              # The migration hook creates the node pools with kubectl apply, so
+              # they are not in the release manifest and the uninstall does not
+              # remove them, and each pool owns the StrimziPodSet that runs its
+              # brokers. After the topics, because the topic operator clears
+              # their finalizers through those brokers; also after the timeout
+              # branch above, since this is the last chance to remove them.
+              # --wait=false: the pods go by garbage collection, and waiting
+              # would spend the headroom the deadline above leaves. No request
+              # timeout either, for the reason given on the topic call.
+              echo "Deleting KafkaNodePools for {{ .Release.Name }}"
+              if ! out=$(kubectl -n {{ .Release.Namespace }} delete kafkanodepools.kafka.strimzi.io \
+                    -l 'strimzi.io/cluster={{ .Release.Name }}' \
+                    --ignore-not-found=true \
+                    --wait=false 2>&1); then
+                printf '%s\n' "${out}"
+                case "${out}" in
+                  *"the server doesn't have a resource type"*|*"no matches for kind"*)
+                    echo "KafkaNodePool CRD absent; nothing to delete" ;;
+                  *)
+                    # Non-zero, unlike the topic timeout: once the uninstall
+                    # completes, Helm never runs this hook for the release
+                    # again, so a pool left now keeps its brokers for good.
+                    # Failing stops the uninstall before it deletes anything,
+                    # and helm-controller retries it.
+                    echo "ERROR: deleting KafkaNodePools failed: ${out}" >&2; exit 1 ;;
                 esac
               else
                 printf '%s\n' "${out}"
@@ -100,7 +142,11 @@ metadata:
   annotations:
     "helm.sh/hook": pre-delete
     "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+    # hook-succeeded, unlike the Job above: the Job reclaims itself through
+    # ttlSecondsAfterFinished, this has no such clock and would otherwise
+    # outlive the release. Reaping runs only once the Job is terminal, which
+    # activeDeadlineSeconds guarantees happens first.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -111,11 +157,15 @@ metadata:
   annotations:
     "helm.sh/hook": pre-delete
     "helm.sh/hook-weight": "5"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+    # Reaped with the ServiceAccount above, for the reason recorded there.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 rules:
   - apiGroups: ["kafka.strimzi.io"]
     resources: ["kafkatopics"]
     verbs: ["get", "list", "watch", "delete"]
+  - apiGroups: ["kafka.strimzi.io"]
+    resources: ["kafkanodepools"]
+    verbs: ["list", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -126,7 +176,8 @@ metadata:
   annotations:
     "helm.sh/hook": pre-delete
     "helm.sh/hook-weight": "5"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+    # Reaped with the ServiceAccount above, for the reason recorded there.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

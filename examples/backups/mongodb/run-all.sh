@@ -44,7 +44,9 @@ subst() {
 
 print_header "Step 00: Provision Bucket '${BUCKET_NAME}' in ${NAMESPACE}"
 kubectl -n "$NAMESPACE" apply -f "$SCRIPT_DIR/00-bucket.yaml"
-wait_hr_ready "bucket-${BUCKET_NAME}" 300
+# 660s, above this generated release's 600s install timeout; see "Sizing an
+# HR-Ready budget" in docs/agents/e2e-testing.md.
+wait_hr_ready "bucket-${BUCKET_NAME}" 660
 wait_for_field bucketclaims.objectstorage.k8s.io "bucket-${BUCKET_NAME}" \
     '{.status.bucketReady}' true "$NAMESPACE" 300
 wait_for_field bucketaccesses.objectstorage.k8s.io "bucket-${BUCKET_NAME}-${BUCKET_USER}" \
@@ -75,7 +77,9 @@ log_success "Bucket '${BUCKET}' at endpoint '${S3_ENDPOINT}'."
 
 print_header "Step 05: Deploy source MongoDB '${MONGODB_SRC_NAME}' with backups enabled"
 subst 05-mongodb-src.yaml | kubectl -n "$NAMESPACE" apply -f -
-wait_hr_ready "$MONGODB_SRC_CR" 300
+# 660s, above this generated release's 600s install timeout; see "Sizing an
+# HR-Ready budget" in docs/agents/e2e-testing.md.
+wait_hr_ready "$MONGODB_SRC_CR" 660
 wait_psmdb_ready "$MONGODB_SRC_CR" 600
 
 print_header "Step 05b: Write a sentinel document so the backup has something to prove"
@@ -102,7 +106,7 @@ fi
 
 print_header "Step 20/30: Restore to a copy '${MONGODB_TARGET_NAME}' and wait for Succeeded"
 subst 20-mongodb-target.yaml | kubectl -n "$NAMESPACE" apply -f -
-wait_hr_ready "$MONGODB_TARGET_CR" 300
+wait_hr_ready "$MONGODB_TARGET_CR" 660
 wait_psmdb_ready "$MONGODB_TARGET_CR" 600
 kubectl -n "$NAMESPACE" apply -f "$SCRIPT_DIR/30-restorejob-to-copy.yaml"
 wait_for_field restorejobs.backups.cozystack.io "$RESTOREJOB_TOCOPY_NAME" \

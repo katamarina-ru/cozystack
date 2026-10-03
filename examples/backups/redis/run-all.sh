@@ -41,7 +41,9 @@ print_header "Redis backup/restore demo (namespace: $NAMESPACE)"
 # --- Bucket ------------------------------------------------------------------
 print_header "Step 00: Provision Bucket '${BUCKET_NAME}' in ${NAMESPACE}"
 kubectl -n "$NAMESPACE" apply -f "$SCRIPT_DIR/bucket.yaml"
-wait_hr_ready "bucket-${BUCKET_NAME}" 300
+# 660s, above this generated release's 600s install timeout; see "Sizing an
+# HR-Ready budget" in docs/agents/e2e-testing.md.
+wait_hr_ready "bucket-${BUCKET_NAME}" 660
 wait_for_field bucketclaims.objectstorage.k8s.io "bucket-${BUCKET_NAME}" \
     '{.status.bucketReady}' true "$NAMESPACE" 300
 wait_for_field bucketaccesses.objectstorage.k8s.io "bucket-${BUCKET_NAME}-${BUCKET_USER}" \
@@ -72,7 +74,7 @@ if [[ -n "$S3_CA_SECRET" ]] \
     log_warning "S3 CA secret ${S3_CA_NAMESPACE}/${S3_CA_SECRET} not found; discovering the seaweedfs CA Certificate..."
     DISCOVERED_CA=$(kubectl -n "$S3_CA_NAMESPACE" get certificates.cert-manager.io \
         -l app.kubernetes.io/name=seaweedfs \
-        -o jsonpath='{range .items[*]}{.spec.isCA}{" "}{.spec.secretName}{"\n"}{end}' 2>/dev/null \
+        -o jsonpath='{range .items[*]}{.spec.isCA}{" "}{.spec.secretName}{"\n"}{end}' \
         | awk '$1=="true"{print $2; exit}' || true)
     if [[ -n "$DISCOVERED_CA" ]]; then
         log_success "Discovered seaweedfs CA secret ${S3_CA_NAMESPACE}/${DISCOVERED_CA}"
@@ -113,9 +115,20 @@ print_header "Step 00c: Create the Redis strategy + BackupClass"
 # Pod needs no package install at run time. Its presence also confirms the
 # platform default backups stack (backupstrategy-controller + CRDs) is
 # installed, without which the BackupJob below cannot reconcile at all.
+#
+# Wait for it rather than read it once. The strategy is rendered behind a
+# lookup of the platform bucket, so it exists only once a Helm upgrade has run
+# after that bucket was provisioned. The controller forces that upgrade, but
+# helm-controller holds it while any release in its dependsOn is not Ready, so
+# a platform change made just before this runs can keep it absent for minutes.
+# kubectl wait keeps polling through NotFound and fails on any other error.
+log_substep "Waiting for the platform's cozy-default-redis strategy..."
+kubectl wait --for=create redis.strategy.backups.cozystack.io/cozy-default-redis \
+    --timeout=15m >/dev/null \
+    || { log_error "cozy-default-redis strategy did not appear: enable the platform default backups (backupstrategy-controller) before running this demo"; exit 1; }
 CLIENT_IMAGE=$(kubectl get redis.strategy.backups.cozystack.io cozy-default-redis \
-    -o jsonpath='{.spec.template.spec.containers[?(@.name=="redis-backup")].image}' 2>/dev/null || true)
-[[ -n "$CLIENT_IMAGE" ]] || { log_error "cozy-default-redis strategy not found: enable the platform default backups (backupstrategy-controller) before running this demo"; exit 1; }
+    -o jsonpath='{.spec.template.spec.containers[?(@.name=="redis-backup")].image}')
+[[ -n "$CLIENT_IMAGE" ]] || { log_error "cozy-default-redis strategy has no redis-backup container image"; exit 1; }
 log_substep "Reusing the platform strategy's client image: ${CLIENT_IMAGE}"
 subst redis-strategy.yaml | kubectl apply -f -
 kubectl apply -f "$SCRIPT_DIR/backupclass.yaml"

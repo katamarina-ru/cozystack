@@ -58,13 +58,15 @@ export S3_CA_KEY="${S3_CA_KEY:-ca.crt}"
 export CA_MOUNT_DIR="${CA_MOUNT_DIR:-/etc/ssl/kafka-backup-ca}"
 # The Cozystack chart names the Strimzi cluster kafka-<app>; its plaintext
 # bootstrap Service is kafka-<app>-kafka-bootstrap:9092.
-# KAFKA_IMAGE only drives the host-side throwaway CLI pods here (seed/verify).
-# The backup/restore Jobs no longer use it: the controller resolves the target
-# broker's own image at reconcile time and renders it as the strategy's
-# .ClientImage. Override this only to match your operator's image for the
-# seed/verify pods if it differs.
+# KAFKA_IMAGE runs the long-lived CLI Pod the seed/verify helpers exec into (see
+# kafka_run). The backup/restore Jobs no longer use it: the controller resolves
+# the target broker's own image at reconcile time and renders it as the
+# strategy's .ClientImage. Override this only to match your operator's image if
+# the CLI it carries differs.
 export KAFKA_IMAGE="${KAFKA_IMAGE:-quay.io/strimzi/kafka:0.45.1-rc1-kafka-3.9.1@sha256:ba52ed046b1dccdbd96f4e68057ce014d862a7c9c1fc670760c023b9aa09f23f}"
 export KAFKA_BIN="${KAFKA_BIN:-/opt/kafka/bin}"
+# Name of that long-lived CLI Pod; cleanup.sh removes it.
+export KAFKA_CLI_POD="${KAFKA_CLI_POD:-kafka-cli}"
 
 log_info()    { echo -e "${BLUE}i${NC} $*" >&2; }
 log_success() { echo -e "${GREEN}OK${NC} $*" >&2; }
@@ -132,65 +134,10 @@ provision_demo_strategy() {
     kubectl apply -f "$SCRIPT_DIR/03-backupclass.yaml" >&2
 }
 
-# Wait until a JSONPath value on a resource matches the desired string. Optional
-# 7th arg is a TERMINAL failure value: once the field reaches it the wait returns
-# 1 immediately instead of polling to the timeout.
-wait_for_field() {
-    local resource_type="$1" resource_name="$2" jsonpath="$3" desired="$4"
-    local namespace="${5:-}" timeout="${6:-300}" fail_value="${7:-}"
-
-    log_substep "Waiting for $resource_type/$resource_name $jsonpath to become '$desired'..."
-    local elapsed=0
-    local ns_flag=()
-    [[ -n "$namespace" ]] && ns_flag=(-n "$namespace")
-
-    while true; do
-        local current
-        current=$(kubectl get "$resource_type" "$resource_name" "${ns_flag[@]}" -o jsonpath="$jsonpath" 2>/dev/null || true)
-        if [[ "$current" == "$desired" ]]; then
-            log_success "$resource_type/$resource_name reached '$desired'"
-            return 0
-        fi
-        if [[ -n "$fail_value" && "$current" == "$fail_value" ]]; then
-            log_error "$resource_type/$resource_name reached terminal '$current' (expected '$desired')"
-            return 1
-        fi
-        if [[ $elapsed -ge $timeout ]]; then
-            log_error "Timeout waiting for $resource_type/$resource_name (current: '$current', expected: '$desired')"
-            return 1
-        fi
-        sleep 5
-        elapsed=$((elapsed + 5))
-    done
-}
-
-# Wait for a HelmRelease to become Ready, with an existence backstop and a
-# fail-fast on Stalled=True.
-wait_hr_ready() {
-    local name="$1" timeout="${2:-300}" elapsed=0
-    log_substep "Waiting for HelmRelease/$name to become Ready..."
-    while true; do
-        if kubectl -n "$NAMESPACE" get hr "$name" >/dev/null 2>&1; then
-            local ready stalled
-            ready=$(kubectl -n "$NAMESPACE" get hr "$name" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)
-            if [[ "$ready" == "True" ]]; then
-                log_success "HelmRelease/$name is Ready"
-                return 0
-            fi
-            stalled=$(kubectl -n "$NAMESPACE" get hr "$name" -o jsonpath='{.status.conditions[?(@.type=="Stalled")].status}' 2>/dev/null || true)
-            if [[ "$stalled" == "True" ]]; then
-                log_error "HelmRelease/$name is Stalled: $(kubectl -n "$NAMESPACE" get hr "$name" -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}' 2>/dev/null)"
-                return 1
-            fi
-        fi
-        if [[ $elapsed -ge $timeout ]]; then
-            log_error "Timeout waiting for HelmRelease/$name to become Ready"
-            return 1
-        fi
-        sleep 5
-        elapsed=$((elapsed + 5))
-    done
-}
+# wait_for_field, wait_hr_ready and wait_deleted live in one file shared by
+# every backup walkthrough, so a fix to one reaches all of them.
+# shellcheck source-path=SCRIPTDIR source=../_lib/wait-helpers.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../_lib/wait-helpers.sh"
 
 # Wait until the Strimzi Kafka cluster kafka-<app> reports Ready=True — the same
 # precondition the driver gates on.
@@ -200,18 +147,49 @@ kafka_wait_ready() {
         '{.status.conditions[?(@.type=="Ready")].status}' True "$NAMESPACE" "$timeout"
 }
 
-# Run a bash snippet in a throwaway Strimzi Kafka Pod, with $BOOT / $BIN / $TOPIC
-# pre-set (values injected via printf %q so the snippet needs no nested quoting).
-# Host-side analogue used only to seed and verify — the backup/restore Jobs are
-# created by the controller from the strategy.
+# Ensure the long-lived kafka-cli Pod exists and is Ready, so kafka_run can exec
+# into it. Idempotent: a Ready Pod this demo owns is reused across calls and
+# across the numbered demo scripts; a leftover in a terminal phase (Succeeded /
+# Failed) is replaced rather than waited on; and a same-named Pod this demo does
+# not own is refused rather than hijacked or deleted. cleanup.sh removes it.
+# Every step returns on failure explicitly: this runs as the left side of
+# `|| return 1`, and some callers also wrap it in $(...), so errexit never
+# applies inside it and a bare failure would carry on to the next step.
+kafka_cli_pod() {
+    local phase owner
+    phase=$(kubectl -n "$NAMESPACE" get pod "$KAFKA_CLI_POD" --ignore-not-found -o jsonpath='{.status.phase}') || return 1
+    owner=$(kubectl -n "$NAMESPACE" get pod "$KAFKA_CLI_POD" --ignore-not-found -o jsonpath='{.metadata.labels.cozystack\.io/backup-demo}') || return 1
+    if [ -n "$phase" ] && [ "$owner" != "kafka-metadata" ]; then
+        log_error "Pod $NAMESPACE/$KAFKA_CLI_POD exists but this demo does not own it; refusing to use or delete it"
+        return 1
+    fi
+    if [ "$phase" != "Running" ] && [ "$phase" != "Pending" ]; then
+        kubectl -n "$NAMESPACE" delete pod "$KAFKA_CLI_POD" --grace-period=1 --ignore-not-found >/dev/null || return 1
+        kubectl -n "$NAMESPACE" run "$KAFKA_CLI_POD" --image="$KAFKA_IMAGE" \
+            --labels=cozystack.io/backup-demo=kafka-metadata \
+            --restart=Never --command -- sleep infinity >/dev/null || return 1
+    fi
+    kubectl -n "$NAMESPACE" wait --for=condition=Ready "pod/$KAFKA_CLI_POD" \
+        --timeout=5m >/dev/null
+}
+
+# Run a bash snippet against the source Kafka, with $BOOT / $BIN / $TOPIC /
+# $PARTITIONS pre-set (values injected via printf %q so the snippet needs no
+# nested quoting). Host-side analogue used only to seed and verify — the
+# backup/restore Jobs are created by the controller from the strategy.
+#
+# The snippet runs by `kubectl exec` in the long-lived CLI Pod, not a throwaway
+# `kubectl run -i` Pod per call. A throwaway Pod's stdout comes back over an
+# attach that only carries what the container writes after the attach registers,
+# so a CLI that finishes in between returns empty with exit 0. An exec'd process
+# owns its pipes, so its output cannot be missed that way, and kubectl's and the
+# CLI's stderr stay attached so a failed read says why instead of reading as ''.
 kafka_run() {
     local app="$1"; shift
     local snippet="$1"
     local boot="kafka-${app}-kafka-bootstrap.${NAMESPACE}.svc:9092"
-    kubectl -n "$NAMESPACE" run "kafka-cli-$RANDOM" \
-        --image="$KAFKA_IMAGE" --restart=Never --rm -i --quiet \
-        --pod-running-timeout=5m \
-        --command -- bash -c "set -eu
+    kafka_cli_pod || return 1
+    kubectl -n "$NAMESPACE" exec -i "$KAFKA_CLI_POD" -- bash -c "set -eu
 BOOT=$(printf %q "$boot")
 BIN=$(printf %q "$KAFKA_BIN")
 TOPIC=$(printf %q "$TOPIC")
@@ -262,7 +240,7 @@ topic_partitions() {
         line=$("$BIN"/kafka-topics.sh --bootstrap-server "$BOOT" --describe --topic "\Q$TOPIC\E" 2>/dev/null | head -1) || exit 0
         [ -n "$line" ] || exit 0
         printf "%s" "$line" | grep -oE "PartitionCount: [0-9]+" | awk "{print \$2}"
-    ' 2>/dev/null | tr -d '\r\n'
+    ' | tr -d '\r\n'
 }
 
 # Print "<partitions> <retention.ms>" for the demo topic, or "" if absent.
@@ -274,5 +252,5 @@ topic_meta() {
         parts=$(printf "%s" "$line" | grep -oE "PartitionCount: [0-9]+" | awk "{print \$2}")
         ret=$(printf "%s" "$line" | grep -oE "retention.ms=[0-9]+" | head -1 | cut -d= -f2)
         printf "%s %s\n" "$parts" "$ret"
-    ' 2>/dev/null | tr -d '\r'
+    ' | tr -d '\r'
 }

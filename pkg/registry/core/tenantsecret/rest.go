@@ -265,7 +265,7 @@ func (r *REST) Create(
 	}
 
 	sec := tenantToSecret(in, nil)
-	err := r.c.Create(ctx, sec, &client.CreateOptions{Raw: opts})
+	err := r.c.Create(ctx, sec, registry.ClientCreateOptions(opts))
 	if err != nil {
 		return nil, err
 	}
@@ -395,7 +395,13 @@ func (r *REST) Update(
 		cur = previous
 	}
 
-	newObj, err := objInfo.UpdatedObject(ctx, nil)
+	// The apiserver's patch handler builds the patched object from the old
+	// object alone; a nil old object makes it answer 404 (and admit as CREATE).
+	var oldObj runtime.Object
+	if cur != nil {
+		oldObj = secretToTenant(cur)
+	}
+	newObj, err := objInfo.UpdatedObject(ctx, oldObj)
 	if err != nil {
 		return nil, false, err
 	}
@@ -412,7 +418,7 @@ func (r *REST) Update(
 				return nil, false, err
 			}
 		}
-		err := r.c.Create(ctx, newSec, &client.CreateOptions{Raw: &metav1.CreateOptions{}})
+		err := r.c.Create(ctx, newSec, registry.ClientCreateOptionsFromUpdate(opts))
 		return secretToTenant(newSec), true, err
 	}
 
@@ -423,7 +429,7 @@ func (r *REST) Update(
 	}
 
 	newSec.ResourceVersion = cur.ResourceVersion
-	err = r.c.Update(ctx, newSec, &client.UpdateOptions{Raw: opts})
+	err = r.c.Update(ctx, newSec, registry.ClientUpdateOptions(opts))
 	return secretToTenant(newSec), false, err
 }
 
@@ -450,7 +456,7 @@ func (r *REST) Delete(
 		}
 	}
 
-	err = r.c.Delete(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name}}, &client.DeleteOptions{Raw: opts})
+	err = r.c.Delete(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name}}, registry.ClientDeleteOptions(opts))
 	return nil, err == nil, err
 }
 
@@ -472,19 +478,19 @@ func (r *REST) Watch(ctx context.Context, opts *metainternal.ListOptions) (watch
 		return watch.NewProxyWatcher(ch), nil
 	}
 
-	// For a SendInitialEvents (WatchList) request, ask the backing watch for
-	// bookmarks — the apiserver omits them by default, which would leave the
-	// terminating initial-events-end bookmark with no reliable trigger.
-	sendInitialEvents := opts.SendInitialEvents != nil && *opts.SendInitialEvents
+	initialEventsEnd := registry.InitialEventsEndBookmarkRequested(opts)
 
 	secList := &corev1.SecretList{}
 	base, err := r.w.Watch(ctx, secList, &client.ListOptions{
 		Namespace:     ns,
 		LabelSelector: ls,
 		Raw: &metav1.ListOptions{
-			Watch:               true,
-			ResourceVersion:     opts.ResourceVersion,
-			AllowWatchBookmarks: sendInitialEvents,
+			Watch:           true,
+			ResourceVersion: opts.ResourceVersion,
+			// Backing bookmarks are forwarded to the client, so ask for them only
+			// when the client did; a WatchList client always does, which keeps
+			// the terminating bookmark's trigger.
+			AllowWatchBookmarks: opts.AllowWatchBookmarks,
 		},
 	})
 	if err != nil {
@@ -501,7 +507,7 @@ func (r *REST) Watch(ctx context.Context, opts *metainternal.ListOptions) (watch
 
 	// Emit the initial-events-end bookmark after the initial ADDED events so
 	// client-go reflectors reach HasSynced.
-	bookmarker := registry.NewInitialEventsBookmarker(sendInitialEvents, opts.ResourceVersion, func() runtime.Object {
+	bookmarker := registry.NewInitialEventsBookmarker(initialEventsEnd, opts.ResourceVersion, func() runtime.Object {
 		return &corev1alpha1.TenantSecret{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: corev1alpha1.SchemeGroupVersion.String(),
@@ -600,7 +606,7 @@ func (r *REST) ConvertToTable(_ context.Context, obj runtime.Object, _ runtime.O
 	now := time.Now()
 	row := func(o *corev1alpha1.TenantSecret) metav1.TableRow {
 		return metav1.TableRow{
-			Cells:  []interface{}{o.Name, o.Type, duration.HumanDuration(now.Sub(o.CreationTimestamp.Time))},
+			Cells:  []any{o.Name, o.Type, duration.HumanDuration(now.Sub(o.CreationTimestamp.Time))},
 			Object: runtime.RawExtension{Object: o},
 		}
 	}
